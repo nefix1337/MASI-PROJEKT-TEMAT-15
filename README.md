@@ -2,6 +2,6 @@
 
 Wykonuje: Kamil Wyderski
 
-Język: Python
-GUI: PyQt5
+Język: Python \
+GUI: PyQt5 \
 Baza danych: PostgreSQL
