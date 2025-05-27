@@ -4,19 +4,28 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout
                             QDialog, QRadioButton, QButtonGroup, QListWidget, QListWidgetItem, QAbstractItemView)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPainter, QPen, QFontMetrics, QIcon
+import psycopg2
 
 
 class UnitermWidget(QWidget):
     def __init__(self):
         super().__init__()
-        self.x1 = "A"
-        self.y1 = "A"
-        self.z1 = "u"
-        self.x2 = "p"
-        self.y2 = "q"
-        self.z2 = "r"
+        self.x1 = ""
+        self.y1 = ""
+        self.z1 = ""
+        self.x2 = ""
+        self.y2 = ""
+        self.z2 = ""
         self.replacement_done = False
         self.replacement_position = None  # "x1" lub "y1"
+        self.selected_uniterm_id = None  # dodane do śledzenia aktualnie wybranego unitermu
+        self.db = DataBaseManager(
+            host="localhost",
+            dbname="unitermdb",
+            user="unitermuser",
+            password="unitermpass",
+            port=5433
+        )
         self.initUI()
 
     def initUI(self):
@@ -93,6 +102,12 @@ class UnitermWidget(QWidget):
         self.btn_zamiana = QPushButton("Zamiana")
         self.btn_zamiana.clicked.connect(self.open_replacement_dialog)
         right_layout.addWidget(self.btn_zamiana)
+
+    
+        self.btn_update = QPushButton("Aktualizuj")
+        self.btn_update.clicked.connect(self.handle_update_item)
+        right_layout.addWidget(self.btn_update)
+
         right_layout.addStretch(1)
 
         add_box = QFrame()
@@ -166,10 +181,39 @@ class UnitermWidget(QWidget):
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(self, "Błąd", "Nazwa nie może być pusta.")
             return
-        print(f"Dodano: {name}, opis: {desc}")
+     
+        self.db.add_uniterm(
+            name, desc,
+            self.x1, self.y1, self.z1,
+            self.x2, self.y2, self.z2,
+            self.replacement_done,
+            self.replacement_position
+        )
         self.load_database_items()
         self.add_name_input.clear()
         self.add_desc_input.clear()
+
+    def handle_update_item(self):
+        
+        if self.selected_uniterm_id is None:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Błąd", "Najpierw wybierz uniterm do aktualizacji (przycisk 👁️).")
+            return
+        name = self.add_name_input.text().strip()
+        desc = self.add_desc_input.text().strip()
+        if not name:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Błąd", "Nazwa nie może być pusta.")
+            return
+        self.db.update_uniterm(
+            self.selected_uniterm_id,
+            name, desc,
+            self.x1, self.y1, self.z1,
+            self.x2, self.y2, self.z2,
+            self.replacement_done,
+            self.replacement_position
+        )
+        self.load_database_items()
 
     def apply_styles(self):
         self.setStyleSheet("""
@@ -233,23 +277,36 @@ class UnitermWidget(QWidget):
         """)
 
     def load_database_items(self):
-        # Przykładowe dane, zamień na pobieranie z bazy
-        items = [
-            {"id": 1, "name": "Uniterm A"},
-            {"id": 2, "name": "Uniterm B"},
-            {"id": 3, "name": "Uniterm C"},
-        ]
+        items = self.db.get_uniterms()
         self.list_widget.clear()
         for item in items:
+            name = item[1] or f"Uniterm {item[0]}"
+            desc = item[2] or ""
             def on_show(checked=False, item=item):
-                print(f"Wyświetl: {item['name']}")
+                self.selected_uniterm_id = item[0]
+                self.x1_input.setText(item[3])
+                self.y1_input.setText(item[4])
+                self.z1_input.setText(item[5])
+                self.x2_input.setText(item[6])
+                self.y2_input.setText(item[7])
+                self.z2_input.setText(item[8])
+                self.replacement_done = item[9]
+                self.replacement_position = item[10]
+                self.add_name_input.setText(item[1] or "")
+                self.add_desc_input.setText(item[2] or "")
+                self.update_variables()
             def on_delete(checked=False, item=item):
-                print(f"Usuń: {item['name']}")
-            widget = DatabaseItemWidget(item["name"], on_show, on_delete)
+                self.db.delete_uniterm(item[0])
+                self.load_database_items()
+            widget = DatabaseItemWidget(f"{name} ({desc})", on_show, on_delete)
             list_item = QListWidgetItem(self.list_widget)
             list_item.setSizeHint(widget.sizeHint())
             self.list_widget.addItem(list_item)
             self.list_widget.setItemWidget(list_item, widget)
+
+    def closeEvent(self, event):
+        self.db.close()
+        event.accept()
 
 class UnitermDrawing(QWidget):
     def __init__(self):
@@ -309,7 +366,7 @@ class UnitermDrawing(QWidget):
             self.draw_operation(painter, start_x, start_y + spacing, self.x2, self.y2, self.z2)
 
         if self.show_replacement:
-            # Wylicz dynamicznie wynik zamiany
+        
             inserted_uniterm = {'x': self.x2, 'y': self.y2, 'z': self.z2}
             if self.replacement_position == "x1":
                 result_x = inserted_uniterm
@@ -330,7 +387,7 @@ class UnitermDrawing(QWidget):
         font_metrics = QFontMetrics(painter.font())
         text_width = font_metrics.horizontalAdvance(term_text)
         margin = 12
-        line_length = max(text_width + 2 * margin, 150)
+        line_length = text_width + 2 * margin  # Dynamiczna długość
         painter.setPen(QPen(Qt.black, 3))
         painter.drawLine(x, y, x + line_length, y)
         painter.drawLine(x, y - 12, x, y + 12)
@@ -338,10 +395,6 @@ class UnitermDrawing(QWidget):
         painter.setPen(QPen(Qt.black, 1))
         term_y = y + 25
         text_x = x + margin
-        if text_width > line_length - 2 * margin:
-            font = painter.font()
-            font.setPointSize(10)
-            painter.setFont(font)
         painter.drawText(text_x, term_y, term_text)
 
     def draw_replacement_operation(self, painter, x, y, term1, term2, term3):
@@ -475,6 +528,81 @@ class MainWindow(QMainWindow):
         self.setGeometry(100, 100, 1000, 800)
         central_widget = UnitermWidget()
         self.setCentralWidget(central_widget)
+
+class DataBaseManager:
+    def __init__(self, host, dbname, user, password, port=5433):
+        self.conn = psycopg2.connect(
+            host=host,
+            dbname=dbname,
+            user=user,
+            password=password,
+            port=port
+        )
+        self.ensure_table()
+
+    def ensure_table(self):
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS uniterm (
+                    id SERIAL PRIMARY KEY,
+                    name TEXT,
+                    description TEXT,
+                    x1 TEXT,
+                    y1 TEXT,
+                    z1 TEXT,
+                    x2 TEXT,
+                    y2 TEXT,
+                    z2 TEXT,
+                    replacement_done BOOLEAN,
+                    replacement_position TEXT
+                );
+            """)
+            self.conn.commit()
+
+    def add_uniterm(self, name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position):
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                INSERT INTO uniterm (name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id;
+            """, (name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position))
+            self.conn.commit()
+            return cur.fetchone()[0]
+
+    def update_uniterm(self, uniterm_id, name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position):
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                UPDATE uniterm
+                SET name=%s, description=%s, x1=%s, y1=%s, z1=%s, x2=%s, y2=%s, z2=%s, replacement_done=%s, replacement_position=%s
+                WHERE id=%s;
+            """, (name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position, uniterm_id))
+            self.conn.commit()
+
+    def get_uniterms(self):
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position
+                FROM uniterm
+                ORDER BY id DESC;
+            """)
+            return cur.fetchall()
+
+    def get_uniterm(self, uniterm_id):
+        with self.conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, name, description, x1, y1, z1, x2, y2, z2, replacement_done, replacement_position
+                FROM uniterm
+                WHERE id = %s;
+            """, (uniterm_id,))
+            return cur.fetchone()
+
+    def delete_uniterm(self, uniterm_id):
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM uniterm WHERE id = %s;", (uniterm_id,))
+            self.conn.commit()
+
+    def close(self):
+        self.conn.close()
 
 def main():
     app = QApplication(sys.argv)

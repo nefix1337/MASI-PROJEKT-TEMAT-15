@@ -1,0 +1,17 @@
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: uniterm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: unitermdb
+      POSTGRES_USER: unitermuser
+      POSTGRES_PASSWORD: unitermpass
+    ports:
+      - "5433:5432"
+    volumes:
+      - uniterm_pgdata:/var/lib/postgresql/data
+
+volumes:
+  uniterm_pgdata:
