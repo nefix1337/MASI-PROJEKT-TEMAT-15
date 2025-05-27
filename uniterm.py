@@ -1,9 +1,9 @@
 import sys
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                             QWidget, QLabel, QLineEdit, QPushButton, QFrame, 
-                            QDialog, QRadioButton, QButtonGroup)
+                            QDialog, QRadioButton, QButtonGroup, QListWidget, QListWidgetItem, QAbstractItemView)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont, QPainter, QPen, QFontMetrics
+from PyQt5.QtGui import QFont, QPainter, QPen, QFontMetrics, QIcon
 
 
 class UnitermWidget(QWidget):
@@ -15,35 +15,26 @@ class UnitermWidget(QWidget):
         self.x2 = "p"
         self.y2 = "q"
         self.z2 = "r"
-        
-        # Zmienne dla wyniku zamiany
-        self.replacement_result = None
         self.replacement_done = False
         self.replacement_position = None  # "x1" lub "y1"
-        
         self.initUI()
-    
+
     def initUI(self):
         main_layout = QHBoxLayout()
-        
-        # Lewa strona - rysowanie unitermów
+        self.list_widget = QListWidget()
+        self.list_widget.setFixedWidth(220)
+        self.list_widget.setSelectionMode(QAbstractItemView.NoSelection)
+        main_layout.addWidget(self.list_widget)
+
         self.drawing_widget = UnitermDrawing()
         self.drawing_widget.setMinimumWidth(400)
         main_layout.addWidget(self.drawing_widget)
-        
-        # Pionowa linia separująca
-        separator = QFrame()
-        separator.setFrameShape(QFrame.VLine)
-        separator.setFrameShadow(QFrame.Sunken)
-        separator.setLineWidth(2)
-        main_layout.addWidget(separator)
-        
-        # Prawa strona - interfejs wprowadzania
+
         right_panel = QWidget()
+        right_panel.setObjectName("RightPanel")
         right_panel.setFixedWidth(300)
         right_layout = QVBoxLayout()
-        
-        # Pierwsza operacja
+
         op1_layout = QVBoxLayout()
         x1_row = QHBoxLayout()
         x1_row.addWidget(QLabel("x1:"))
@@ -69,10 +60,6 @@ class UnitermWidget(QWidget):
         z1_row.addWidget(self.z1_input)
         op1_layout.addLayout(z1_row)
 
-        right_layout.addLayout(op1_layout)
-        right_layout.addSpacing(30)
-
-        # Druga operacja
         op2_layout = QVBoxLayout()
         x2_row = QHBoxLayout()
         x2_row.addWidget(QLabel("x2:"))
@@ -98,21 +85,43 @@ class UnitermWidget(QWidget):
         z2_row.addWidget(self.z2_input)
         op2_layout.addLayout(z2_row)
 
+        right_layout.addLayout(op1_layout)
+        right_layout.addSpacing(30)
         right_layout.addLayout(op2_layout)
         right_layout.addSpacing(30)
-        
-        # Przycisk Zamiana
+
         self.btn_zamiana = QPushButton("Zamiana")
         self.btn_zamiana.clicked.connect(self.open_replacement_dialog)
         right_layout.addWidget(self.btn_zamiana)
-        
         right_layout.addStretch(1)
+
+        add_box = QFrame()
+        add_box.setFrameShape(QFrame.StyledPanel)
+        add_layout = QVBoxLayout()
+        add_layout.setContentsMargins(8, 8, 8, 8)
+
+        self.add_name_input = QLineEdit()
+        self.add_name_input.setPlaceholderText("Nazwa")
+        add_layout.addWidget(self.add_name_input)
+
+        self.add_desc_input = QLineEdit()
+        self.add_desc_input.setPlaceholderText("Opis")
+        add_layout.addWidget(self.add_desc_input)
+
+        self.btn_add = QPushButton("Dodaj")
+        self.btn_add.clicked.connect(self.handle_add_item)
+        add_layout.addWidget(self.btn_add)
+
+        add_box.setLayout(add_layout)
+        right_layout.addWidget(add_box)
 
         right_panel.setLayout(right_layout)
         main_layout.addWidget(right_panel)
         self.setLayout(main_layout)
 
         self.apply_styles()
+        self.load_database_items()
+        self.update_variables()
 
     def update_variables(self):
         self.x1 = self.x1_input.text()
@@ -121,15 +130,13 @@ class UnitermWidget(QWidget):
         self.x2 = self.x2_input.text()
         self.y2 = self.y2_input.text()
         self.z2 = self.z2_input.text()
-
         self.drawing_widget.update_variables(
             self.x1, self.y1, self.z1,
             self.x2, self.y2, self.z2,
-            self.replacement_result,
             self.replacement_done,
             self.replacement_position
         )
-    
+
     def open_replacement_dialog(self):
         dialog = ReplacementDialog(self)
         result = dialog.exec_()
@@ -138,43 +145,31 @@ class UnitermWidget(QWidget):
             self.perform_replacement(selected_variable)
 
     def perform_replacement(self, selected_variable):
-        """Wykonuje operację zamiany i oblicza wynik"""
-        # Wstawiona wartość jako osobny uniterm
-        inserted_uniterm = {
-            'x': self.x2,
-            'y': self.y2, 
-            'z': self.z2
-        }
-        
-        if selected_variable == "x1":
-            # Zamiana x1 - podstawiamy cały uniterm 2 pod x1
-            result_x = inserted_uniterm
-            result_y = self.y1
-            result_z = self.z1
-        elif selected_variable == "y1":
-            # Zamiana y1 - podstawiamy cały uniterm 2 pod y1
-            result_x = self.x1
-            result_y = inserted_uniterm
-            result_z = self.z1
-        else:
+        if selected_variable not in ("x1", "y1"):
             return
-        
-        self.replacement_result = (result_x, result_y, result_z)
         self.replacement_done = True
         self.replacement_position = selected_variable
-        
         print(f"Zamiana wykonana: {selected_variable} -> uniterm 2")
         print(f"Status zamiany: {self.replacement_done}")
         print(f"Pozycja zamiany: {self.replacement_position}")
-        
-        # Aktualizuj rysunek
         self.drawing_widget.update_variables(
             self.x1, self.y1, self.z1,
             self.x2, self.y2, self.z2,
-            self.replacement_result,
             self.replacement_done,
             self.replacement_position
         )
+
+    def handle_add_item(self):
+        name = self.add_name_input.text().strip()
+        desc = self.add_desc_input.text().strip()
+        if not name:
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "Błąd", "Nazwa nie może być pusta.")
+            return
+        print(f"Dodano: {name}, opis: {desc}")
+        self.load_database_items()
+        self.add_name_input.clear()
+        self.add_desc_input.clear()
 
     def apply_styles(self):
         self.setStyleSheet("""
@@ -202,19 +197,59 @@ class UnitermWidget(QWidget):
             QPushButton {
                 background-color: #0078d7;
                 color: white;
-                border-radius: 6px;
+                border: none;
+                border-radius: 5px;
                 padding: 6px 12px;
+                font-weight: bold;
+                transition: background 0.2s;
             }
 
             QPushButton:hover {
                 background-color: #005fa3;
             }
 
+            QPushButton:pressed {
+                background-color: #004c82;
+            }
+
             QFrame {
-                background-color: #ddd;
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+            }
+
+            QListWidget {
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 6px;
+            }
+
+            /* Prawy panel */
+            QWidget#RightPanel {
+                background-color: #f5f5f5;
+                border: 1px solid #ddd;
+                border-radius: 6px;
             }
         """)
 
+    def load_database_items(self):
+        # Przykładowe dane, zamień na pobieranie z bazy
+        items = [
+            {"id": 1, "name": "Uniterm A"},
+            {"id": 2, "name": "Uniterm B"},
+            {"id": 3, "name": "Uniterm C"},
+        ]
+        self.list_widget.clear()
+        for item in items:
+            def on_show(checked=False, item=item):
+                print(f"Wyświetl: {item['name']}")
+            def on_delete(checked=False, item=item):
+                print(f"Usuń: {item['name']}")
+            widget = DatabaseItemWidget(item["name"], on_show, on_delete)
+            list_item = QListWidgetItem(self.list_widget)
+            list_item.setSizeHint(widget.sizeHint())
+            self.list_widget.addItem(list_item)
+            self.list_widget.setItemWidget(list_item, widget)
 
 class UnitermDrawing(QWidget):
     def __init__(self):
@@ -225,7 +260,6 @@ class UnitermDrawing(QWidget):
         self.x2 = ""
         self.y2 = ""
         self.z2 = ""
-        self.replacement_result = None
         self.replacement_done = False
         self.replacement_position = None
         self.show_elimination_1 = False
@@ -233,19 +267,18 @@ class UnitermDrawing(QWidget):
         self.show_replacement = False
         self.setMinimumHeight(400)
 
-    def update_variables(self, x1, y1, z1, x2, y2, z2, replacement_result=None, replacement_done=False, replacement_position=None):
+    def update_variables(self, x1, y1, z1, x2, y2, z2, replacement_done=False, replacement_position=None):
         self.x1 = x1
         self.y1 = y1
         self.z1 = z1
         self.x2 = x2
         self.y2 = y2
         self.z2 = z2
-        self.replacement_result = replacement_result
         self.replacement_done = replacement_done
         self.replacement_position = replacement_position
         self.show_elimination_1 = bool(x1 and y1 and z1)
         self.show_elimination_2 = bool(x2 and y2 and z2)
-        self.show_replacement = bool(replacement_result)
+        self.show_replacement = bool(replacement_done and replacement_position)
         self.update()
 
     def paintEvent(self, event):
@@ -261,10 +294,8 @@ class UnitermDrawing(QWidget):
         painter.setPen(QPen(Qt.black, 1))
         painter.drawText(20, 50, "Uniterm 1")
         painter.drawText(20, 50 + spacing, "Uniterm 2")
-        
-        # Tytuł "Zamiana" z niebieskim napisem po prawej
         painter.drawText(20, 50 + 2 * spacing, "Zamiana")
-        if self.replacement_done:
+        if self.replacement_done and self.replacement_position:
             painter.setPen(QPen(Qt.blue, 1))
             info_text = f"{self.replacement_position} -> uniterm 2"
             painter.drawText(120, 50 + 2 * spacing, info_text)
@@ -276,9 +307,22 @@ class UnitermDrawing(QWidget):
 
         if self.show_elimination_2:
             self.draw_operation(painter, start_x, start_y + spacing, self.x2, self.y2, self.z2)
-            
+
         if self.show_replacement:
-            result_x, result_y, result_z = self.replacement_result
+            # Wylicz dynamicznie wynik zamiany
+            inserted_uniterm = {'x': self.x2, 'y': self.y2, 'z': self.z2}
+            if self.replacement_position == "x1":
+                result_x = inserted_uniterm
+                result_y = self.y1
+                result_z = self.z1
+            elif self.replacement_position == "y1":
+                result_x = self.x1
+                result_y = inserted_uniterm
+                result_z = self.z1
+            else:
+                result_x = self.x1
+                result_y = self.y1
+                result_z = self.z1
             self.draw_replacement_operation(painter, start_x, start_y + 2 * spacing, result_x, result_y, result_z)
 
     def draw_operation(self, painter, x, y, term1, term2, term3):
@@ -286,98 +330,67 @@ class UnitermDrawing(QWidget):
         font_metrics = QFontMetrics(painter.font())
         text_width = font_metrics.horizontalAdvance(term_text)
         margin = 12
-        line_length = max(text_width + 2 * margin, 150)  # Minimum szerokość dla długich tekstów
-
+        line_length = max(text_width + 2 * margin, 150)
         painter.setPen(QPen(Qt.black, 3))
         painter.drawLine(x, y, x + line_length, y)
         painter.drawLine(x, y - 12, x, y + 12)
         painter.drawLine(x + line_length, y - 12, x + line_length, y + 12)
-
         painter.setPen(QPen(Qt.black, 1))
         term_y = y + 25
         text_x = x + margin
-        
-        # Sprawdź czy tekst mieści się w linii, jeśli nie - zmniejsz czcionkę
         if text_width > line_length - 2 * margin:
             font = painter.font()
             font.setPointSize(10)
             painter.setFont(font)
-        
         painter.drawText(text_x, term_y, term_text)
 
     def draw_replacement_operation(self, painter, x, y, term1, term2, term3):
-        """Rysuje operację zamiany z wstawioną wartością jako osobny poziomy uniterm na tym samym poziomie"""
         font_metrics = QFontMetrics(painter.font())
-        
-        # Najpierw znajdź pozycje dla zwykłych termów i wstawionego unitermu
         terms = [term1, term2, term3]
         term_positions = []
         current_x = x + 12
-        
-        # Oblicz pozycje wszystkich termów
         for i, term in enumerate(terms):
             if isinstance(term, dict):
-                # To jest wstawiony uniterm - zarezerwuj miejsce
                 inserted_text = f"{term['x']} ; {term['y']} ; {term['z']}"
-                width = font_metrics.horizontalAdvance(inserted_text) + 24  # margines dla linii unitermu
+                width = font_metrics.horizontalAdvance(inserted_text) + 24
                 term_positions.append({'type': 'inserted', 'x': current_x, 'width': width, 'text': inserted_text})
                 current_x += width
             else:
-                # Zwykły term
                 text = str(term)
                 width = font_metrics.horizontalAdvance(text)
                 term_positions.append({'type': 'normal', 'x': current_x, 'width': width, 'text': text})
                 current_x += width
-            
-            # Dodaj separator (oprócz ostatniego elementu)
             if i < len(terms) - 1:
                 separator = " ; "
                 current_x += font_metrics.horizontalAdvance(separator)
-        
-        # Oblicz całkowitą szerokość głównej linii
         total_width = current_x - x
         line_length = max(total_width, 200)
-        
-        # Rysowanie głównej linii unitermu
         painter.setPen(QPen(Qt.black, 3))
         painter.drawLine(x, y, x + line_length, y)
         painter.drawLine(x, y - 12, x, y + 12)
         painter.drawLine(x + line_length, y - 12, x + line_length, y + 12)
-        
-        # Rysowanie poszczególnych termów
         current_x = x + 12
         text_y = y + 25
-        
         for i, (term, pos_info) in enumerate(zip(terms, term_positions)):
             if pos_info['type'] == 'inserted':
-                # Rysuj wstawiony uniterm jako osobną linię na tym samym poziomie co tekst
-                uniterm_y = text_y - 15  # Na tym samym poziomie co główny tekst
+                uniterm_y = text_y - 15
                 uniterm_width = pos_info['width']
-                
-                # Linia dla wstawionego unitermu
                 painter.setPen(QPen(Qt.black, 2))
                 painter.drawLine(current_x, uniterm_y, current_x + uniterm_width, uniterm_y)
                 painter.drawLine(current_x, uniterm_y - 6, current_x, uniterm_y + 6)
                 painter.drawLine(current_x + uniterm_width, uniterm_y - 6, current_x + uniterm_width, uniterm_y + 6)
-                
-                # Tekst wstawionego unitermu
                 painter.setPen(QPen(Qt.black, 1))
                 painter.drawText(current_x + 12, uniterm_y + 15, pos_info['text'])
-                
                 current_x += uniterm_width
             else:
-                # Zwykły term na głównej linii
                 painter.setPen(QPen(Qt.black, 1))
                 painter.drawText(current_x, text_y, pos_info['text'])
                 current_x += pos_info['width']
-            
-            # Separator
             if i < len(terms) - 1:
                 painter.setPen(QPen(Qt.black, 1))
                 separator = " ; "
                 painter.drawText(current_x, text_y, separator)
                 current_x += font_metrics.horizontalAdvance(separator)
-
 
 class ReplacementDialog(QDialog):
     def __init__(self, parent=None):
@@ -385,44 +398,27 @@ class ReplacementDialog(QDialog):
         self.setWindowTitle("Zamiana")
         self.setModal(True)
         self.setFixedSize(300, 180)
-        
         layout = QVBoxLayout()
-        
-        # Opis
         description = QLabel("Wybierz wartość która ma być zamieniona:")
         layout.addWidget(description)
-        
-        # Grupa przycisków radiowych
         self.button_group = QButtonGroup()
-        
         self.x1_radio = QRadioButton("x1 (podstaw cały uniterm 2)")
         self.y1_radio = QRadioButton("y1 (podstaw cały uniterm 2)")
-        
-        # Domyślnie zaznacz pierwszy
         self.x1_radio.setChecked(True)
-        
         self.button_group.addButton(self.x1_radio)
         self.button_group.addButton(self.y1_radio)
-        
         layout.addWidget(self.x1_radio)
         layout.addWidget(self.y1_radio)
-        
-        # Przyciski OK i Anuluj
         buttons_layout = QHBoxLayout()
-        
         ok_button = QPushButton("OK")
         cancel_button = QPushButton("Anuluj")
-        
         ok_button.clicked.connect(self.accept)
         cancel_button.clicked.connect(self.reject)
-        
         buttons_layout.addWidget(ok_button)
         buttons_layout.addWidget(cancel_button)
-        
         layout.addLayout(buttons_layout)
-        
         self.setLayout(layout)
-    
+
     def get_selected_variable(self):
         if self.x1_radio.isChecked():
             return "x1"
@@ -430,22 +426,61 @@ class ReplacementDialog(QDialog):
             return "y1"
         return None
 
+class DatabaseItemWidget(QWidget):
+    def __init__(self, name, on_show, on_delete):
+        super().__init__()
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        self.label = QLabel(name)
+        layout.addWidget(self.label)
+        layout.addStretch(1)
+        self.btn_show = QPushButton("👁️")
+        self.btn_show.setToolTip("Wyświetl")
+        self.btn_show.setFixedSize(32, 32)
+        self.btn_show.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                font-size: 18px;
+                padding: 0 6px;
+            }
+            QPushButton:hover {
+                background: #e0e0e0;
+            }
+        """)
+        self.btn_show.clicked.connect(on_show)
+        self.btn_delete = QPushButton("🗑️")
+        self.btn_delete.setToolTip("Usuń")
+        self.btn_delete.setFixedSize(32, 32)
+        self.btn_delete.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                font-size: 18px;
+                padding: 0 6px;
+            }
+            QPushButton:hover {
+                background: #ffeaea;
+            }
+        """)
+        self.btn_delete.clicked.connect(on_delete)
+        layout.addWidget(self.btn_show)
+        layout.addWidget(self.btn_delete)
+        self.setLayout(layout)
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Program Unitermów - Operacje Eliminowania")
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 1000, 800)
         central_widget = UnitermWidget()
         self.setCentralWidget(central_widget)
-
 
 def main():
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
-
 
 if __name__ == '__main__':
     main()
