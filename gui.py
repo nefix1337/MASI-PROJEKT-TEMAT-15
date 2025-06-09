@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QVBoxLayout, QHBoxLayout, 
                             QWidget, QLabel, QLineEdit, QPushButton, QFrame, 
-                            QDialog, QRadioButton, QButtonGroup, QListWidget, QListWidgetItem, QAbstractItemView)
+                            QDialog, QRadioButton, QButtonGroup, QListWidget, QListWidgetItem, QAbstractItemView, QMessageBox)
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QPainter, QPen, QFontMetrics, QIcon
 from database import *
@@ -151,6 +151,17 @@ class UnitermWidget(QWidget):
         )
 
     def open_replacement_dialog(self):
+        # Sprawdź czy wszystkie pola są wypełnione
+        if not all([self.x1, self.y1, self.z1, self.x2, self.y2, self.z2]):
+            from PyQt5.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "Błąd",
+                "Proszę wypełnić wszystkie pola (x1, y1, z1, x2, y2, z2) przed wykonaniem operacji zamiany."
+            )
+            return
+        
+        # Jeśli wszystkie pola są wypełnione, pokaż dialog zamiany
         dialog = ReplacementDialog(self)
         result = dialog.exec_()
         if result == QDialog.Accepted:
@@ -176,7 +187,7 @@ class UnitermWidget(QWidget):
         name = self.add_name_input.text().strip()
         desc = self.add_desc_input.text().strip()
         if not name:
-            from PyQt5.QtWidgets import QMessageBox
+            
             QMessageBox.warning(self, "Błąd", "Nazwa nie może być pusta.")
             return
      
