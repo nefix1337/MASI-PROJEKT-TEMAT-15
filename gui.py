@@ -15,8 +15,8 @@ class UnitermWidget(QWidget):
         self.y2 = ""
         self.z2 = ""
         self.replacement_done = False
-        self.replacement_position = None  # "x1" lub "y1"
-        self.selected_uniterm_id = None  # dodane do śledzenia aktualnie wybranego unitermu
+        self.replacement_position = None  
+        self.selected_uniterm_id = None  
         self.db = DataBaseManager(
             host="localhost",
             dbname="unitermdb",
@@ -42,60 +42,15 @@ class UnitermWidget(QWidget):
         right_panel.setFixedWidth(300)
         right_layout = QVBoxLayout()
 
-        op1_layout = QVBoxLayout()
-        x1_row = QHBoxLayout()
-        x1_row.addWidget(QLabel("x1:"))
-        self.x1_input = QLineEdit()
-        self.x1_input.setPlaceholderText("Wpisz wartość")
-        self.x1_input.textChanged.connect(self.update_variables)
-        x1_row.addWidget(self.x1_input)
-        op1_layout.addLayout(x1_row)
+        self.input_widget = UnitermInputWidget()
+        right_layout.addWidget(self.input_widget)
 
-        y1_row = QHBoxLayout()
-        y1_row.addWidget(QLabel("y1:"))
-        self.y1_input = QLineEdit()
-        self.y1_input.setPlaceholderText("Wpisz wartość")
-        self.y1_input.textChanged.connect(self.update_variables)
-        y1_row.addWidget(self.y1_input)
-        op1_layout.addLayout(y1_row)
-
-        z1_row = QHBoxLayout()
-        z1_row.addWidget(QLabel("z1:"))
-        self.z1_input = QLineEdit()
-        self.z1_input.setPlaceholderText("Wpisz wartość")
-        self.z1_input.textChanged.connect(self.update_variables)
-        z1_row.addWidget(self.z1_input)
-        op1_layout.addLayout(z1_row)
-
-        op2_layout = QVBoxLayout()
-        x2_row = QHBoxLayout()
-        x2_row.addWidget(QLabel("x2:"))
-        self.x2_input = QLineEdit()
-        self.x2_input.setPlaceholderText("Wpisz wartość")
-        self.x2_input.textChanged.connect(self.update_variables)
-        x2_row.addWidget(self.x2_input)
-        op2_layout.addLayout(x2_row)
-
-        y2_row = QHBoxLayout()
-        y2_row.addWidget(QLabel("y2:"))
-        self.y2_input = QLineEdit()
-        self.y2_input.setPlaceholderText("Wpisz wartość")
-        self.y2_input.textChanged.connect(self.update_variables)
-        y2_row.addWidget(self.y2_input)
-        op2_layout.addLayout(y2_row)
-
-        z2_row = QHBoxLayout()
-        z2_row.addWidget(QLabel("z2:"))
-        self.z2_input = QLineEdit()
-        self.z2_input.setPlaceholderText("Wpisz wartość")
-        self.z2_input.textChanged.connect(self.update_variables)
-        z2_row.addWidget(self.z2_input)
-        op2_layout.addLayout(z2_row)
-
-        right_layout.addLayout(op1_layout)
-        right_layout.addSpacing(30)
-        right_layout.addLayout(op2_layout)
-        right_layout.addSpacing(30)
+        self.input_widget.x1_input.textChanged.connect(self.update_variables)
+        self.input_widget.y1_input.textChanged.connect(self.update_variables)
+        self.input_widget.z1_input.textChanged.connect(self.update_variables)
+        self.input_widget.x2_input.textChanged.connect(self.update_variables)
+        self.input_widget.y2_input.textChanged.connect(self.update_variables)
+        self.input_widget.z2_input.textChanged.connect(self.update_variables)
 
         self.btn_zamiana = QPushButton("Zamiana")
         self.btn_zamiana.clicked.connect(self.open_replacement_dialog)
@@ -137,12 +92,12 @@ class UnitermWidget(QWidget):
         self.update_variables()
 
     def update_variables(self):
-        self.x1 = self.x1_input.text()
-        self.y1 = self.y1_input.text()
-        self.z1 = self.z1_input.text()
-        self.x2 = self.x2_input.text()
-        self.y2 = self.y2_input.text()
-        self.z2 = self.z2_input.text()
+        self.x1 = self.input_widget.x1_input.text()
+        self.y1 = self.input_widget.y1_input.text()
+        self.z1 = self.input_widget.z1_input.text()
+        self.x2 = self.input_widget.x2_input.text()
+        self.y2 = self.input_widget.y2_input.text()
+        self.z2 = self.input_widget.z2_input.text()
         self.drawing_widget.update_variables(
             self.x1, self.y1, self.z1,
             self.x2, self.y2, self.z2,
@@ -151,7 +106,7 @@ class UnitermWidget(QWidget):
         )
 
     def open_replacement_dialog(self):
-        # Sprawdź czy wszystkie pola są wypełnione
+      
         if not all([self.x1, self.y1, self.z1, self.x2, self.y2, self.z2]):
             from PyQt5.QtWidgets import QMessageBox
             QMessageBox.warning(
@@ -161,7 +116,7 @@ class UnitermWidget(QWidget):
             )
             return
         
-        # Jeśli wszystkie pola są wypełnione, pokaż dialog zamiany
+        
         dialog = ReplacementDialog(self)
         result = dialog.exec_()
         if result == QDialog.Accepted:
@@ -293,12 +248,12 @@ class UnitermWidget(QWidget):
             desc = item[2] or ""
             def on_show(checked=False, item=item):
                 self.selected_uniterm_id = item[0]
-                self.x1_input.setText(item[3])
-                self.y1_input.setText(item[4])
-                self.z1_input.setText(item[5])
-                self.x2_input.setText(item[6])
-                self.y2_input.setText(item[7])
-                self.z2_input.setText(item[8])
+                self.input_widget.x1_input.setText(item[3])
+                self.input_widget.y1_input.setText(item[4])
+                self.input_widget.z1_input.setText(item[5])
+                self.input_widget.x2_input.setText(item[6])
+                self.input_widget.y2_input.setText(item[7])
+                self.input_widget.z2_input.setText(item[8])
                 self.replacement_done = item[9]
                 self.replacement_position = item[10]
                 self.add_name_input.setText(item[1] or "")
@@ -361,10 +316,7 @@ class UnitermDrawing(QWidget):
         painter.drawText(20, 50, "Uniterm 1")
         painter.drawText(20, 50 + spacing, "Uniterm 2")
         painter.drawText(20, 50 + 2 * spacing, "Zamiana")
-        if self.replacement_done and self.replacement_position:
-            painter.setPen(QPen(Qt.blue, 1))
-            info_text = f"{self.replacement_position} -> uniterm 2"
-            painter.drawText(120, 50 + 2 * spacing, info_text)
+        
 
         painter.setPen(QPen(Qt.black, 1))
 
@@ -528,4 +480,67 @@ class DatabaseItemWidget(QWidget):
         self.btn_delete.clicked.connect(on_delete)
         layout.addWidget(self.btn_show)
         layout.addWidget(self.btn_delete)
+        self.setLayout(layout)
+
+class UnitermInputWidget(QWidget):
+    """
+    Widget do wprowadzania i edycji wartości x1, y1, z1, x2, y2, z2, nazwy i opisu.
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout()
+
+        # Uniterm 1
+        op1_layout = QVBoxLayout()
+        x1_row = QHBoxLayout()
+        x1_row.addWidget(QLabel("x1:"))
+        self.x1_input = QLineEdit()
+        self.x1_input.setPlaceholderText("Wpisz wartość")
+        x1_row.addWidget(self.x1_input)
+        op1_layout.addLayout(x1_row)
+
+        y1_row = QHBoxLayout()
+        y1_row.addWidget(QLabel("y1:"))
+        self.y1_input = QLineEdit()
+        self.y1_input.setPlaceholderText("Wpisz wartość")
+        y1_row.addWidget(self.y1_input)
+        op1_layout.addLayout(y1_row)
+
+        z1_row = QHBoxLayout()
+        z1_row.addWidget(QLabel("z1:"))
+        self.z1_input = QLineEdit()
+        self.z1_input.setPlaceholderText("Wpisz wartość")
+        z1_row.addWidget(self.z1_input)
+        op1_layout.addLayout(z1_row)
+
+        # Uniterm 2
+        op2_layout = QVBoxLayout()
+        x2_row = QHBoxLayout()
+        x2_row.addWidget(QLabel("x2:"))
+        self.x2_input = QLineEdit()
+        self.x2_input.setPlaceholderText("Wpisz wartość")
+        x2_row.addWidget(self.x2_input)
+        op2_layout.addLayout(x2_row)
+
+        y2_row = QHBoxLayout()
+        y2_row.addWidget(QLabel("y2:"))
+        self.y2_input = QLineEdit()
+        self.y2_input.setPlaceholderText("Wpisz wartość")
+        y2_row.addWidget(self.y2_input)
+        op2_layout.addLayout(y2_row)
+
+        z2_row = QHBoxLayout()
+        z2_row.addWidget(QLabel("z2:"))
+        self.z2_input = QLineEdit()
+        self.z2_input.setPlaceholderText("Wpisz wartość")
+        z2_row.addWidget(self.z2_input)
+        op2_layout.addLayout(z2_row)
+
+        layout.addLayout(op1_layout)
+        layout.addSpacing(30)
+        layout.addLayout(op2_layout)
+        layout.addSpacing(30)
+
+    
+
         self.setLayout(layout)
